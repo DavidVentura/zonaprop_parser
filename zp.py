@@ -4,13 +4,15 @@ import re
 import requests
 import msgpack
 import datetime
+import csv
 
 from pprint import pprint 
 
 LISTADO_AVISOS = 'http://www.zonaprop.com.ar/listado_avisos.ajax'
 ITEM_AVISO = 'http://www.zonaprop.com.ar/listado_buscarAvisoMapa.ajax'
 SPACE_REMOVER = re.compile(r'\s+')
-geofence = [ -34.605781, -34.564231, -58.462801, -58.416281 ]
+geofence = [ -34.600570, -34.592798, -58.479538, -58.414478 ] # tati
+geofence = [ -34.605781, -34.564231, -58.462801, -58.416281 ] # david
 
 keys = [
     'geoloc_1_coordinate',
@@ -28,15 +30,30 @@ keys = [
     'm2cubiertos',
     'm2totales',
     'direccion',
-    'precioformateado'
+    'precioformateado',
+    'url',
     ]
+
+csv_keys = [
+    'url',
+    'tituloOriginal',
+    'tipoDePropiedad',
+    'habitaciones',
+    'ambientes',
+    'banos',
+    'ubicacion',
+    'm2cubiertos',
+    'm2totales',
+    'direccion',
+    'precioformateado'
+]
 
 stupid_keys = ['habitaciones', 'banos', 'ambientes']
 params = {
-    'lat1': -34.6296099114158,
-    'lat2': -34.58015756977069,
-    'lng1': -58.525369704052764,
-    'lng2': -58.339803755566436,
+    'lat1': geofence[0],
+    'lat2': geofence[1],
+    'lng1': geofence[2],
+    'lng2': geofence[3],
     'volverABuscarAca': True,
     'nivelZoom': 13,
     'parametrosFiltro': '/ph-alquiler-capital-federal-mas-59-m2-menos-20002-pesos-map.html'
@@ -61,6 +78,8 @@ def fix_item(item):
                 print(value)
                 print(e)
                 value = 0
+        elif key == 'url':
+            value = 'http://www.zonaprop.com.ar' + value
 
         ret[key] = value
     return ret
@@ -100,23 +119,20 @@ def contained(item, geofence):
 
 
 def get_item(id_aviso):
-    mocking = False
-    if mocking:
-        aviso = json.loads(open('zp_aviso', 'r').read())
-    else:
-        r = requests.get(ITEM_AVISO, params={'idAviso': id_aviso})
-        aviso = json.loads(r.text)
-    
+    r = requests.get(ITEM_AVISO, params={'idAviso': id_aviso})
+    aviso = json.loads(r.text)
     return fix_item(aviso['contenido']['avisos'][0])
 
 
 def get_list(params):
     mocking = True
+    mocking = False
     if mocking:
         data = open('zp', 'r').read()
     else:
         r = requests.get(LISTADO_AVISOS, params=params)
         data = r.text
+        open('zp', 'w').write(data)
     data = json.loads(data)
     return data['contenido']['avisosMap']
 
@@ -138,16 +154,23 @@ def save_avisos(ls):
     return data
 
 ls = get_list(params)
-mmocking = False
 mmocking = True
+mmocking = False
 if mmocking:
     avisos = msgpack.unpackb(open('alldata', 'rb').read(), encoding='utf-8')
 else:
     avisos = save_avisos(ls)
-print(len(avisos))
+
 useful = list(filter(lambda x: x['useful'], avisos.values()))
-print(len(useful))
-pprint(useful)
-# f = open('tmp_list', 'w')
-# f.write(json.dumps(ls))
-# f.close()
+
+with open('phs.csv', 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(csv_keys)
+    for item in useful:
+        values = []
+        for key in csv_keys:
+            value = ''
+            if key in item:
+                value = item[key]
+            values.append(value)
+        writer.writerow(values)
