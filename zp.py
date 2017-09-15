@@ -4,7 +4,9 @@ import re
 import requests
 import msgpack
 import datetime
+from datetime import datetime
 import csv
+import sys
 
 from pprint import pprint 
 
@@ -137,21 +139,30 @@ def get_list(params):
     return data['contenido']['avisosMap']
 
 
-def save_avisos(ls):
+def save_avisos(ls, ids):
     data = {}
     print("Total items:", len(ls))
-    start = datetime.datetime.now()
+    start = datetime.now()
     for item in ls:
         item_id = item['idAviso']
+        if item_id in ids:
+            data[item_id] = None
+            continue
         item = get_item(item_id)
         item['useful'] = is_useful(item)
         data[item_id] = item
         print(item_id)
-    end = datetime.datetime.now()
+    end = datetime.now()
     td = end - start
     print("Total time:", td.seconds)
     open('alldata', 'wb').write(msgpack.packb(data))
     return data
+
+try:
+    ids = json.loads(open("ids.json", 'r').read())
+except Exception as e:
+    print(e)
+    ids = []
 
 ls = get_list(params)
 mmocking = True
@@ -159,11 +170,20 @@ mmocking = False
 if mmocking:
     avisos = msgpack.unpackb(open('alldata', 'rb').read(), encoding='utf-8')
 else:
-    avisos = save_avisos(ls)
+    avisos = save_avisos(ls, ids)
+    print(ids)
+    ids = list(avisos.keys())
+    print(ids)
+    open('ids.json', 'w').write(json.dumps(ids))
 
-useful = list(filter(lambda x: x['useful'], avisos.values()))
+useful = list(filter(lambda x: x is not None and x['useful'], avisos.values()))
 
-with open('phs.csv', 'w', newline='') as csvfile:
+if len(useful) == 0:
+    sys.exit(0)
+
+fname = "PHS_%s.csv" % datetime.strftime(datetime.now(), '%Y%m%d_%H%M%S')
+
+with open(fname, 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(csv_keys)
     for item in useful:
