@@ -141,7 +141,7 @@ def get_list(params):
 
 def save_avisos(ls, ids):
     data = {}
-    print("Total items:", len(ls))
+    # print("Total items:", len(ls))
     start = datetime.now()
     for item in ls:
         item_id = item['idAviso']
@@ -154,7 +154,7 @@ def save_avisos(ls, ids):
         print(item_id)
     end = datetime.now()
     td = end - start
-    print("Total time:", td.seconds)
+    # print("Total time:", td.seconds)
     open('alldata', 'wb').write(msgpack.packb(data))
     return data
 
@@ -171,16 +171,15 @@ if mmocking:
     avisos = msgpack.unpackb(open('alldata', 'rb').read(), encoding='utf-8')
 else:
     avisos = save_avisos(ls, ids)
-    print(ids)
     ids = list(avisos.keys())
-    print(ids)
     open('ids.json', 'w').write(json.dumps(ids))
 
 useful = list(filter(lambda x: x is not None and x['useful'], avisos.values()))
 
 if len(useful) == 0:
-    sys.exit(0)
+    sys.exit(1)
 
+print('New data!!')
 fname = "PHS_%s.csv" % datetime.strftime(datetime.now(), '%Y%m%d_%H%M%S')
 
 with open(fname, 'w', newline='') as csvfile:
